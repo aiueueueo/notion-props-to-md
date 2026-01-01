@@ -1,0 +1,36 @@
+{
+  "name": "notion2obsidian",
+  "version": "1.0.0",
+  "description": "NotionデータベースのページプロパティをObsidian向けのマークダウンファイルとしてエクスポートするCLIツール",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "config": "ts-node src/config-server.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "notion",
+    "obsidian",
+    "markdown",
+    "export"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "inquirer": "^9.2.23",
+    "open": "^11.0.0",
+    "yaml": "^2.4.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^20.14.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}

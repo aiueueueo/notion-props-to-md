@@ -1,0 +1,8 @@
+{
+  "databaseId": "your-notion-database-id",
+  "outputDir": "./output",
+  "imageDir": "./output/images",
+  "excludeProperties": [],
+  "propertyOrder": [],
+  "customProperties": []
+}
