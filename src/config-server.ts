@@ -15,6 +15,7 @@ interface PropertyInfo {
   type: string;
   enabled: boolean;
   outputName: string;
+  additionValue: string;
 }
 
 // カスタムプロパティの型
@@ -71,6 +72,14 @@ export async function startConfigServer(): Promise<void> {
       const excludeProperties: string[] = (currentConfig.excludeProperties as string[]) || [];
       const customProperties: CustomPropertyInfo[] = (currentConfig.customProperties as CustomPropertyInfo[]) || [];
       const propertyNameMap: Record<string, string> = (currentConfig.propertyNameMap as Record<string, string>) || {};
+      const propertyValueAdditions: Record<string, unknown> = (currentConfig.propertyValueAdditions as Record<string, unknown>) || {};
+
+      // 追加値を文字列に変換（配列はカンマ区切り）
+      const formatAdditionValue = (value: unknown): string => {
+        if (value === undefined || value === null) return '';
+        if (Array.isArray(value)) return value.join(', ');
+        return String(value);
+      };
 
       // プロパティ情報を作成
       const allProperties: PropertyInfo[] = schema.map((prop) => {
@@ -79,6 +88,7 @@ export async function startConfigServer(): Promise<void> {
           type: prop.type,
           enabled: !excludeProperties.includes(prop.name),
           outputName: propertyNameMap[prop.name] || '',
+          additionValue: formatAdditionValue(propertyValueAdditions[prop.name]),
         };
       });
 
@@ -137,6 +147,27 @@ export async function startConfigServer(): Promise<void> {
         }
       }
       config.propertyNameMap = nameMap;
+
+      // 追加値を保存（空でないもののみ）
+      const valueAdditions: Record<string, string | string[] | number | boolean> = {};
+      for (const prop of properties) {
+        if (prop.additionValue && prop.additionValue.trim() !== '') {
+          const trimmed = prop.additionValue.trim();
+          // カンマ区切りは配列に変換
+          if (trimmed.includes(',')) {
+            valueAdditions[prop.name] = trimmed.split(',').map((v) => v.trim()).filter((v) => v);
+          } else if (trimmed === 'true') {
+            valueAdditions[prop.name] = true;
+          } else if (trimmed === 'false') {
+            valueAdditions[prop.name] = false;
+          } else if (!isNaN(Number(trimmed)) && trimmed !== '') {
+            valueAdditions[prop.name] = Number(trimmed);
+          } else {
+            valueAdditions[prop.name] = trimmed;
+          }
+        }
+      }
+      config.propertyValueAdditions = valueAdditions;
 
       // カスタムプロパティを保存
       config.customProperties = customProperties;

@@ -13,6 +13,7 @@ export interface Config {
   propertyOrder?: string[];
   customProperties?: CustomProperty[];
   propertyNameMap?: Record<string, string>;
+  propertyValueAdditions?: Record<string, string | string[] | number | boolean>;
 }
 
 // コマンドラインオプションの型
