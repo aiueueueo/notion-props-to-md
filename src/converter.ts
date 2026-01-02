@@ -46,14 +46,14 @@ function convertProperty(
   name: string,
   prop: unknown,
   excludeProperties: string[]
-): { value: PropertyValue; files: FileInfo[] } {
+): { value: PropertyValue; files: FileInfo[]; skip?: boolean } {
   // 除外プロパティのチェック
   if (excludeProperties.includes(name)) {
-    return { value: null, files: [] };
+    return { value: null, files: [], skip: true };
   }
 
   if (!prop || typeof prop !== 'object') {
-    return { value: null, files: [] };
+    return { value: null, files: [], skip: true };
   }
 
   const propObj = prop as Record<string, unknown>;
@@ -91,7 +91,7 @@ function convertProperty(
 
     case 'select': {
       const select = propObj.select as { name: string } | null;
-      return { value: select?.name ?? null, files: [] };
+      return { value: select?.name ?? '', files: [] };
     }
 
     case 'multi_select': {
@@ -107,13 +107,13 @@ function convertProperty(
 
     case 'status': {
       const status = propObj.status as { name: string } | null;
-      return { value: status?.name ?? null, files: [] };
+      return { value: status?.name ?? '', files: [] };
     }
 
     case 'date': {
       const date = propObj.date as { start: string; end?: string } | null;
       if (!date) {
-        return { value: null, files: [] };
+        return { value: '', files: [] };
       }
       // end がある場合は「start ~ end」形式
       if (date.end) {
@@ -129,17 +129,17 @@ function convertProperty(
 
     case 'url': {
       const url = propObj.url as string | null;
-      return { value: url, files: [] };
+      return { value: url ?? '', files: [] };
     }
 
     case 'email': {
       const email = propObj.email as string | null;
-      return { value: email, files: [] };
+      return { value: email ?? '', files: [] };
     }
 
     case 'phone_number': {
       const phone = propObj.phone_number as string | null;
-      return { value: phone, files: [] };
+      return { value: phone ?? '', files: [] };
     }
 
     case 'created_time': {
@@ -250,7 +250,7 @@ function convertProperty(
 
     default:
       logger.debug(`    未対応のプロパティ型: ${type}`);
-      return { value: null, files: [] };
+      return { value: null, files: [], skip: true };
   }
 }
 
@@ -289,10 +289,10 @@ export function convertPageProperties(
   logger.debug(`ページのプロパティを変換中...`);
 
   for (const [name, prop] of Object.entries(page.properties)) {
-    const { value, files } = convertProperty(name, prop, excludeProperties);
+    const { value, files, skip } = convertProperty(name, prop, excludeProperties);
 
-    // nullでない値のみ追加（空文字列や空配列は追加）
-    if (value !== null) {
+    // スキップフラグがない場合のみ追加（空文字列、空配列、nullも出力）
+    if (!skip) {
       // プロパティ名マッピングを適用（マッピングがあれば変換後の名前を使用）
       const outputName = propertyNameMap[name] || name;
 
