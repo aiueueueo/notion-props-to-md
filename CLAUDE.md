@@ -24,13 +24,16 @@ NotionデータベースのページプロパティをObsidian向けのマーク
 **1. コマンドライン引数モード**
 
 ```bash
+# データベースを指定して全ページ出力
+npm run start -- --db "Book" --all
+
 # タイトル完全一致
-npm run start -- --title "会議メモ"
+npm run start -- --db "Book" --title "会議メモ"
 
 # タイトル部分一致
-npm run start -- --contains "議事録"
+npm run start -- --db "Game" --contains "ゲーム"
 
-# 全ページ出力
+# 全ページ出力（DBが1つの場合は--db省略可）
 npm run start -- --all
 ```
 
@@ -41,6 +44,10 @@ npm run start
 ```
 
 ```
+? 対象のデータベースを選択してください:
+  ❯ Book
+    Game
+
 ? 検索方法を選択してください:
   ❯ タイトル完全一致
     タイトル部分一致
@@ -57,6 +64,7 @@ npm run start
 ```
 
 対話モードでは出力前に確認できるため、意図しないページの出力を防げる。
+※ データベースが1つしかない場合はDB選択はスキップされる。
 
 #### 複数ヒット時の動作
 
@@ -129,31 +137,64 @@ URL: https://example.com
 
 ### 設定ファイル名: `config.json`
 
+複数のNotionデータベースを設定可能。
+
 ```json
 {
-  "databaseId": "your-notion-database-id",
-  "outputDir": "./output",
-  "imageDir": "./output/attachments",
-  "excludeProperties": [],
-  "propertyOrder": [],
-  "propertyNameMap": {},
-  "customProperties": []
+  "databases": [
+    {
+      "name": "Book",
+      "databaseId": "your-notion-database-id",
+      "outputDir": "./output/book",
+      "imageDir": "./output/images",
+      "excludeProperties": [],
+      "propertyOrder": [],
+      "propertyNameMap": {},
+      "propertyValueAdditions": {},
+      "customProperties": []
+    },
+    {
+      "name": "Game",
+      "databaseId": "another-database-id",
+      "outputDir": "./output/game",
+      "imageDir": "./output/images",
+      "excludeProperties": [],
+      "propertyOrder": [],
+      "propertyNameMap": {},
+      "propertyValueAdditions": {},
+      "customProperties": []
+    }
+  ]
 }
 ```
 
 | 項目 | 説明 | 必須 |
 |-----|------|-----|
+| name | データベースの表示名（選択時に使用） | Yes |
 | databaseId | 対象のNotionデータベースID | Yes |
 | outputDir | マークダウンファイルの出力先ディレクトリ | Yes |
 | imageDir | 画像ファイルの保存先ディレクトリ | No |
 | excludeProperties | 出力から除外するプロパティ名の配列 | No |
 | propertyOrder | プロパティの出力順序 | No |
 | propertyNameMap | プロパティ名の変換マッピング（例: `{"作成日時": "created"}`） | No |
+| propertyValueAdditions | プロパティ値の追加（例: `{"タグ": "book"}`） | No |
 | customProperties | カスタムプロパティの配列 | No |
 
 ※ `imageDir`未指定の場合は`outputDir/images`に保存
 ※ ページの指定は設定ファイルではなく、コマンドライン引数または対話モードで行う
-※ `excludeProperties`、`propertyOrder`、`propertyNameMap`、`customProperties`は`npm run config`で設定可能
+※ 各DB設定は`npm run config`で設定可能（DB選択ドロップダウンあり）
+
+### 後方互換性
+
+旧形式（単一DB）の設定ファイルも動作する（「デフォルト」という名前のDBとして扱われる）。
+
+```json
+{
+  "databaseId": "your-notion-database-id",
+  "outputDir": "./output",
+  "imageDir": "./output/images"
+}
+```
 
 ## 環境変数
 
@@ -306,15 +347,18 @@ npm run start -- --verbose
 
 ブラウザで設定画面が開き、以下の設定が可能：
 
+- **データベース選択**: ドロップダウンで設定対象のDBを切り替え
 - **プロパティの有効/無効**: チェックボックスで出力するプロパティを選択
 - **プロパティの順序**: ドラッグ&ドロップで出力順序を変更
 - **プロパティ名の変更**: Notionのプロパティ名を別の名前で出力（例: 「作成日時」→「created」）
+- **プロパティ値の追加**: Notionのプロパティ値に値を追加（例: タグに「book」を追加）
 - **カスタムプロパティの追加**: Notionにはないオリジナルのプロパティを追加
 
 ### コマンドラインオプション一覧
 
 | オプション | 説明 |
 |-----------|------|
+| `--db "DB名"` | 対象のデータベースを指定 |
 | `--title "タイトル"` | タイトル完全一致で指定 |
 | `--contains "キーワード"` | タイトル部分一致で指定 |
 | `--all` | 全ページを出力 |
@@ -325,6 +369,8 @@ npm run start -- --verbose
 - [x] 除外プロパティの設定機能
 - [x] プロパティ名の変更機能
 - [x] カスタムプロパティの追加機能
+- [x] プロパティ値の追加機能
+- [x] 複数データベース対応
 - [ ] ドライラン機能（実際に出力せず確認のみ）
 - [ ] 差分更新機能（変更があったページのみ更新）
 - [ ] ログ出力機能
