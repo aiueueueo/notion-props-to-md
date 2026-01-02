@@ -12,6 +12,7 @@ export interface Config {
   excludeProperties?: string[];
   propertyOrder?: string[];
   customProperties?: CustomProperty[];
+  propertyNameMap?: Record<string, string>;
 }
 
 // コマンドラインオプションの型

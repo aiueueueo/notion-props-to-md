@@ -25,7 +25,8 @@ async function processPage(
   const { properties, files } = convertPageProperties(
     page,
     config.excludeProperties,
-    config.propertyOrder
+    config.propertyOrder,
+    config.propertyNameMap
   );
 
   // 画像情報を更新（ローカルパスを設定）
