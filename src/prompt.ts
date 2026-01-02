@@ -1,5 +1,5 @@
 import inquirer from 'inquirer';
-import { SearchCondition, NotionPageSummary } from './types';
+import { SearchCondition, NotionPageSummary, DatabaseConfig } from './types';
 
 // 検索方法の選択肢
 const SEARCH_MODE_CHOICES = [
@@ -7,6 +7,32 @@ const SEARCH_MODE_CHOICES = [
   { name: 'タイトル部分一致', value: 'contains' },
   { name: '全ページ出力', value: 'all' },
 ];
+
+// データベースを選択
+export async function selectDatabase(
+  databases: DatabaseConfig[]
+): Promise<DatabaseConfig | null> {
+  // データベースが1つしかない場合はそれを返す
+  if (databases.length === 1) {
+    return databases[0];
+  }
+
+  const choices = databases.map((db) => ({
+    name: db.name,
+    value: db.name,
+  }));
+
+  const { dbName } = await inquirer.prompt([
+    {
+      type: 'list',
+      name: 'dbName',
+      message: '対象のデータベースを選択してください:',
+      choices,
+    },
+  ]);
+
+  return databases.find((db) => db.name === dbName) || null;
+}
 
 // 検索方法を選択
 export async function selectSearchMode(): Promise<'title' | 'contains' | 'all'> {

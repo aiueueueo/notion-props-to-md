@@ -4,8 +4,26 @@ export interface CustomProperty {
   value: string | string[] | number | boolean;
 }
 
-// 設定ファイルの型
+// データベース個別設定の型
+export interface DatabaseConfig {
+  name: string;
+  databaseId: string;
+  outputDir: string;
+  imageDir?: string;
+  excludeProperties?: string[];
+  propertyOrder?: string[];
+  customProperties?: CustomProperty[];
+  propertyNameMap?: Record<string, string>;
+  propertyValueAdditions?: Record<string, string | string[] | number | boolean>;
+}
+
+// 設定ファイルの型（複数DB対応）
 export interface Config {
+  databases: DatabaseConfig[];
+}
+
+// 後方互換性のための旧設定ファイルの型
+export interface LegacyConfig {
   databaseId: string;
   outputDir: string;
   imageDir?: string;
@@ -18,6 +36,7 @@ export interface Config {
 
 // コマンドラインオプションの型
 export interface CommandOptions {
+  db?: string;
   title?: string;
   contains?: string;
   all?: boolean;

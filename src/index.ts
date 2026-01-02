@@ -1,20 +1,20 @@
 // Notion2Obsidian エントリーポイント
 
 import { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { loadConfig, loadEnv } from './config';
+import { loadConfig, getDatabaseByName, loadEnv } from './config';
 import * as logger from './logger';
 import * as notion from './notion';
 import { createProgram, parseOptions, getSearchConditionFromOptions, hasSearchOptions } from './cli';
-import { getSearchConditionInteractive, confirmPages } from './prompt';
+import { getSearchConditionInteractive, confirmPages, selectDatabase } from './prompt';
 import { convertPageProperties, getPageTitle } from './converter';
 import { downloadImages, updateImagePaths } from './downloader';
 import { outputPage, OutputResult } from './writer';
-import { SearchCondition, Config } from './types';
+import { SearchCondition, DatabaseConfig } from './types';
 
 // ページを処理してマークダウンファイルを出力
 async function processPage(
   page: PageObjectResponse,
-  config: Config,
+  dbConfig: DatabaseConfig,
   current: number,
   total: number
 ): Promise<OutputResult> {
@@ -24,26 +24,26 @@ async function processPage(
   // プロパティを変換
   const { properties, files } = convertPageProperties(
     page,
-    config.excludeProperties,
-    config.propertyOrder,
-    config.propertyNameMap,
-    config.propertyValueAdditions
+    dbConfig.excludeProperties,
+    dbConfig.propertyOrder,
+    dbConfig.propertyNameMap,
+    dbConfig.propertyValueAdditions
   );
 
   // 画像情報を更新（ローカルパスを設定）
-  const images = updateImagePaths(files, title, config.imageDir!);
+  const images = updateImagePaths(files, title, dbConfig.imageDir!);
 
   // 画像をダウンロード
-  const downloadedImages = await downloadImages(images, config.imageDir!);
+  const downloadedImages = await downloadImages(images, dbConfig.imageDir!);
 
   // マークダウンファイルを出力
   const filePath = outputPage(
     title,
     properties,
     downloadedImages,
-    config.outputDir,
-    config.imageDir!,
-    config.customProperties || []
+    dbConfig.outputDir,
+    dbConfig.imageDir!,
+    dbConfig.customProperties || []
   );
 
   return {
@@ -71,9 +71,7 @@ async function main(): Promise<void> {
     // 設定ファイル読み込み
     logger.debug('config.json を読み込み中...');
     const config = loadConfig();
-    logger.debug(`databaseId: ${config.databaseId}`);
-    logger.debug(`outputDir: ${config.outputDir}`);
-    logger.debug(`imageDir: ${config.imageDir}`);
+    logger.debug(`${config.databases.length}件のデータベース設定を読み込みました`);
 
     // 環境変数読み込み
     logger.debug('.env を読み込み中...');
@@ -83,6 +81,32 @@ async function main(): Promise<void> {
     // Notionクライアント初期化
     logger.debug('Notion API に接続中...');
     notion.initializeClient(apiKey);
+
+    // データベース設定を取得
+    let dbConfig: DatabaseConfig | null = null;
+
+    if (options.db) {
+      // コマンドライン引数でDB名が指定された場合
+      dbConfig = getDatabaseByName(config, options.db) || null;
+      if (!dbConfig) {
+        throw new Error(
+          `データベース「${options.db}」が見つかりません。\n` +
+          `利用可能なデータベース: ${config.databases.map((db) => db.name).join(', ')}`
+        );
+      }
+    } else {
+      // 対話モードでDB選択
+      dbConfig = await selectDatabase(config.databases);
+      if (!dbConfig) {
+        logger.log('キャンセルしました');
+        return;
+      }
+    }
+
+    logger.debug(`データベース: ${dbConfig.name}`);
+    logger.debug(`databaseId: ${dbConfig.databaseId}`);
+    logger.debug(`outputDir: ${dbConfig.outputDir}`);
+    logger.debug(`imageDir: ${dbConfig.imageDir}`);
 
     // 検索条件の取得
     let condition: SearchCondition | null = null;
@@ -106,7 +130,7 @@ async function main(): Promise<void> {
     }
 
     // ページを取得
-    const pages = await notion.getPages(config.databaseId, condition);
+    const pages = await notion.getPages(dbConfig.databaseId, condition);
     const summaries = notion.getPageSummaries(pages);
 
     // ページが見つからない場合
@@ -133,7 +157,7 @@ async function main(): Promise<void> {
     const results: OutputResult[] = [];
     for (let i = 0; i < pages.length; i++) {
       try {
-        const result = await processPage(pages[i], config, i + 1, pages.length);
+        const result = await processPage(pages[i], dbConfig, i + 1, pages.length);
         results.push(result);
       } catch (err) {
         const title = getPageTitle(pages[i]);

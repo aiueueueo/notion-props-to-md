@@ -9,6 +9,7 @@ export function createProgram(): Command {
     .name('notion2obsidian')
     .description('NotionデータベースのページをObsidian向けマークダウンにエクスポート')
     .version('1.0.0')
+    .option('--db <name>', '対象のデータベース名を指定')
     .option('--title <title>', 'タイトル完全一致で指定')
     .option('--contains <keyword>', 'タイトル部分一致で指定')
     .option('--all', '全ページを出力')
@@ -22,6 +23,7 @@ export function parseOptions(program: Command): CommandOptions {
   const opts = program.opts();
 
   return {
+    db: opts.db as string | undefined,
     title: opts.title as string | undefined,
     contains: opts.contains as string | undefined,
     all: opts.all as boolean | undefined,

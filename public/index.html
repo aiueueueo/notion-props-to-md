@@ -23,6 +23,29 @@
       font-size: 1.3em;
       margin: 0 0 12px 0;
     }
+    .db-selector {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .db-selector label {
+      font-weight: 500;
+      color: #555;
+    }
+    .db-selector select {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      background: white;
+      cursor: pointer;
+      flex: 1;
+    }
+    .db-selector select:focus {
+      outline: none;
+      border-color: #4a9eff;
+    }
     .section {
       background: white;
       border-radius: 6px;
@@ -256,11 +279,18 @@
 <body>
   <h1>Notion2Obsidian - プロパティ設定</h1>
 
+  <div class="db-selector">
+    <label for="db-select">データベース:</label>
+    <select id="db-select" onchange="onDatabaseChange()">
+      <option value="">読み込み中...</option>
+    </select>
+  </div>
+
   <div class="section">
     <h2>出力するプロパティの選択と順序</h2>
     <p class="hint">ドラッグ&ドロップで順番を変更、出力名や追加値を編集できます。チェックを外すと出力されません。</p>
     <div id="property-container">
-      <div class="loading">プロパティを読み込み中...</div>
+      <div class="loading">データベースを選択してください</div>
     </div>
   </div>
 
@@ -283,19 +313,77 @@
   <div id="status" class="status"></div>
 
   <script>
+    let databases = [];
+    let selectedDatabase = null;
     let properties = [];
     let customProperties = [];
     let originalProperties = [];
     let originalCustomProperties = [];
 
-    // プロパティ一覧を取得
-    async function loadProperties() {
+    // データベース一覧を取得
+    async function loadDatabases() {
       try {
-        const response = await fetch('/api/properties');
+        const response = await fetch('/api/databases');
         const data = await response.json();
 
         if (data.error) {
           showStatus('error', data.error);
+          return;
+        }
+
+        databases = data.databases;
+        renderDatabaseSelector();
+
+        // データベースが1つしかない場合は自動選択
+        if (databases.length === 1) {
+          document.getElementById('db-select').value = databases[0].name;
+          onDatabaseChange();
+        }
+      } catch (error) {
+        showStatus('error', 'データベースの読み込みに失敗しました: ' + error.message);
+      }
+    }
+
+    // データベースセレクターを描画
+    function renderDatabaseSelector() {
+      const select = document.getElementById('db-select');
+      select.innerHTML = databases.map(db =>
+        `<option value="${db.name}">${db.name}</option>`
+      ).join('');
+
+      if (databases.length === 0) {
+        select.innerHTML = '<option value="">データベースがありません</option>';
+      }
+    }
+
+    // データベース変更時の処理
+    function onDatabaseChange() {
+      const select = document.getElementById('db-select');
+      selectedDatabase = select.value;
+
+      if (selectedDatabase) {
+        loadProperties();
+      } else {
+        document.getElementById('property-container').innerHTML =
+          '<div class="loading">データベースを選択してください</div>';
+      }
+    }
+
+    // プロパティ一覧を取得
+    async function loadProperties() {
+      if (!selectedDatabase) return;
+
+      document.getElementById('property-container').innerHTML =
+        '<div class="loading">プロパティを読み込み中...</div>';
+
+      try {
+        const response = await fetch(`/api/properties?db=${encodeURIComponent(selectedDatabase)}`);
+        const data = await response.json();
+
+        if (data.error) {
+          showStatus('error', data.error);
+          document.getElementById('property-container').innerHTML =
+            `<div class="loading">${data.error}</div>`;
           return;
         }
 
@@ -519,11 +607,16 @@
 
     // 設定を保存
     async function saveConfig() {
+      if (!selectedDatabase) {
+        showStatus('error', 'データベースを選択してください');
+        return;
+      }
+
       try {
         const response = await fetch('/api/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ properties, customProperties })
+          body: JSON.stringify({ dbName: selectedDatabase, properties, customProperties })
         });
 
         const data = await response.json();
@@ -567,7 +660,7 @@
     });
 
     // 初期化
-    loadProperties();
+    loadDatabases();
   </script>
 </body>
 </html>

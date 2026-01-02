@@ -4,8 +4,9 @@ import express from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
 import open from 'open';
-import { loadConfig, loadEnv } from './config';
+import { loadEnv } from './config';
 import * as notion from './notion';
+import { DatabaseConfig } from './types';
 
 const PORT = 3456;
 
@@ -24,10 +25,18 @@ interface CustomPropertyInfo {
   value: string | string[] | number | boolean;
 }
 
+// データベース情報の型
+interface DatabaseInfo {
+  name: string;
+  databaseId: string;
+  outputDir: string;
+  imageDir: string;
+}
+
 // 設定ファイルのパス
 const CONFIG_FILE_PATH = path.join(process.cwd(), 'config.json');
 
-// 設定ファイルを読み込む
+// 設定ファイルを読み込む（生のJSON）
 function readConfigFile(): Record<string, unknown> {
   const configText = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
   return JSON.parse(configText);
@@ -36,6 +45,30 @@ function readConfigFile(): Record<string, unknown> {
 // 設定ファイルを書き込む
 function writeConfigFile(config: Record<string, unknown>): void {
   fs.writeFileSync(CONFIG_FILE_PATH, JSON.stringify(config, null, 2), 'utf-8');
+}
+
+// 旧形式の設定かどうかを判定
+function isLegacyConfig(config: Record<string, unknown>): boolean {
+  return 'databaseId' in config && !('databases' in config);
+}
+
+// 旧形式の設定を新形式に変換
+function convertLegacyConfig(legacy: Record<string, unknown>): Record<string, unknown> {
+  return {
+    databases: [
+      {
+        name: 'デフォルト',
+        databaseId: legacy.databaseId,
+        outputDir: legacy.outputDir,
+        imageDir: legacy.imageDir,
+        excludeProperties: legacy.excludeProperties || [],
+        propertyOrder: legacy.propertyOrder || [],
+        customProperties: legacy.customProperties || [],
+        propertyNameMap: legacy.propertyNameMap || {},
+        propertyValueAdditions: legacy.propertyValueAdditions || {},
+      },
+    ],
+  };
 }
 
 // サーバーを起動
@@ -48,31 +81,75 @@ export async function startConfigServer(): Promise<void> {
   // 静的ファイルの配信
   app.use(express.static(path.join(__dirname, '..', 'public')));
 
+  // データベース一覧を取得するAPI
+  app.get('/api/databases', (req, res) => {
+    try {
+      let config = readConfigFile();
+
+      // 旧形式の場合は新形式に変換
+      if (isLegacyConfig(config)) {
+        config = convertLegacyConfig(config);
+      }
+
+      const databases = config.databases as DatabaseConfig[];
+      const dbList: DatabaseInfo[] = databases.map((db) => ({
+        name: db.name,
+        databaseId: db.databaseId,
+        outputDir: db.outputDir,
+        imageDir: db.imageDir || path.join(db.outputDir, 'images'),
+      }));
+
+      res.json({ databases: dbList });
+    } catch (error) {
+      console.error('データベース一覧取得エラー:', error);
+      res.json({ error: error instanceof Error ? error.message : '不明なエラー' });
+    }
+  });
+
   // プロパティ一覧を取得するAPI
   app.get('/api/properties', async (req, res) => {
     try {
-      // 設定を読み込み
-      const config = loadConfig();
+      const dbName = req.query.db as string;
+      if (!dbName) {
+        res.json({ error: 'データベース名が指定されていません' });
+        return;
+      }
+
+      let config = readConfigFile();
+
+      // 旧形式の場合は新形式に変換
+      if (isLegacyConfig(config)) {
+        config = convertLegacyConfig(config);
+      }
+
+      const databases = config.databases as DatabaseConfig[];
+      const dbConfig = databases.find((db) => db.name === dbName);
+
+      if (!dbConfig) {
+        res.json({ error: `データベース「${dbName}」が見つかりません` });
+        return;
+      }
+
+      // 環境変数を読み込み
       const apiKey = loadEnv();
 
       // Notionクライアントを初期化
       notion.initializeClient(apiKey);
 
       // データベースのスキーマからプロパティ一覧を取得（高速）
-      const schema = await notion.getDatabaseSchema(config.databaseId);
+      const schema = await notion.getDatabaseSchema(dbConfig.databaseId);
 
       if (schema.length === 0) {
         res.json({ error: 'データベースにプロパティがありません' });
         return;
       }
 
-      // 現在の設定を読み込む
-      const currentConfig = readConfigFile();
-      const propertyOrder: string[] = (currentConfig.propertyOrder as string[]) || [];
-      const excludeProperties: string[] = (currentConfig.excludeProperties as string[]) || [];
-      const customProperties: CustomPropertyInfo[] = (currentConfig.customProperties as CustomPropertyInfo[]) || [];
-      const propertyNameMap: Record<string, string> = (currentConfig.propertyNameMap as Record<string, string>) || {};
-      const propertyValueAdditions: Record<string, unknown> = (currentConfig.propertyValueAdditions as Record<string, unknown>) || {};
+      // 現在の設定を取得
+      const propertyOrder: string[] = dbConfig.propertyOrder || [];
+      const excludeProperties: string[] = dbConfig.excludeProperties || [];
+      const customProperties: CustomPropertyInfo[] = (dbConfig.customProperties as CustomPropertyInfo[]) || [];
+      const propertyNameMap: Record<string, string> = dbConfig.propertyNameMap || {};
+      const propertyValueAdditions: Record<string, unknown> = dbConfig.propertyValueAdditions || {};
 
       // 追加値を文字列に変換（配列はカンマ区切り）
       const formatAdditionValue = (value: unknown): string => {
@@ -120,22 +197,40 @@ export async function startConfigServer(): Promise<void> {
   // 設定を保存するAPI
   app.post('/api/config', (req, res) => {
     try {
-      const { properties, customProperties } = req.body as {
+      const { dbName, properties, customProperties } = req.body as {
+        dbName: string;
         properties: PropertyInfo[];
         customProperties: CustomPropertyInfo[];
       };
 
-      // 現在の設定を読み込む
-      const config = readConfigFile();
+      if (!dbName) {
+        res.json({ success: false, error: 'データベース名が指定されていません' });
+        return;
+      }
+
+      let config = readConfigFile();
+
+      // 旧形式の場合は新形式に変換して保存
+      if (isLegacyConfig(config)) {
+        config = convertLegacyConfig(config);
+      }
+
+      const databases = config.databases as DatabaseConfig[];
+      const dbIndex = databases.findIndex((db) => db.name === dbName);
+
+      if (dbIndex === -1) {
+        res.json({ success: false, error: `データベース「${dbName}」が見つかりません` });
+        return;
+      }
 
       // プロパティの順序を保存（Notionプロパティ + カスタムプロパティ）
-      config.propertyOrder = [
+      databases[dbIndex].propertyOrder = [
         ...properties.map((p) => p.name),
         ...customProperties.map((p) => p.name),
       ];
 
       // 除外プロパティを保存
-      config.excludeProperties = properties
+      databases[dbIndex].excludeProperties = properties
         .filter((p) => !p.enabled)
         .map((p) => p.name);
 
@@ -146,7 +241,7 @@ export async function startConfigServer(): Promise<void> {
           nameMap[prop.name] = prop.outputName.trim();
         }
       }
-      config.propertyNameMap = nameMap;
+      databases[dbIndex].propertyNameMap = nameMap;
 
       // 追加値を保存（空でないもののみ）
       const valueAdditions: Record<string, string | string[] | number | boolean> = {};
@@ -167,12 +262,13 @@ export async function startConfigServer(): Promise<void> {
           }
         }
       }
-      config.propertyValueAdditions = valueAdditions;
+      databases[dbIndex].propertyValueAdditions = valueAdditions;
 
       // カスタムプロパティを保存
-      config.customProperties = customProperties;
+      databases[dbIndex].customProperties = customProperties;
 
       // 設定ファイルを書き込む
+      config.databases = databases;
       writeConfigFile(config);
 
       res.json({ success: true });
