@@ -26,7 +26,8 @@ async function processPage(
     page,
     config.excludeProperties,
     config.propertyOrder,
-    config.propertyNameMap
+    config.propertyNameMap,
+    config.propertyValueAdditions
   );
 
   // 画像情報を更新（ローカルパスを設定）

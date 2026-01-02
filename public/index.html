@@ -110,6 +110,27 @@
     .property-item .output-name::placeholder {
       color: #bbb;
     }
+    .property-item .plus {
+      color: #28a745;
+      margin: 0 4px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .property-item .addition-value {
+      padding: 2px 6px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      font-size: 11px;
+      min-width: 60px;
+      max-width: 100px;
+    }
+    .property-item .addition-value:focus {
+      outline: none;
+      border-color: #28a745;
+    }
+    .property-item .addition-value::placeholder {
+      color: #bbb;
+    }
     .property-item .value {
       color: #666;
       font-size: 0.85em;
@@ -237,7 +258,7 @@
 
   <div class="section">
     <h2>出力するプロパティの選択と順序</h2>
-    <p class="hint">ドラッグ&ドロップで順番を変更できます。チェックを外すと出力されません。出力名を変更するには右側の入力欄を編集してください。</p>
+    <p class="hint">ドラッグ&ドロップで順番を変更、出力名や追加値を編集できます。チェックを外すと出力されません。</p>
     <div id="property-container">
       <div class="loading">プロパティを読み込み中...</div>
     </div>
@@ -327,7 +348,7 @@
               <span class="drag-handle">☰</span>
               ${prop.isCustom ? '' : `<input type="checkbox" ${prop.enabled ? 'checked' : ''} onchange="toggleProperty(${prop.originalIndex})">`}
               <span class="name">${prop.name}</span>
-              ${prop.isCustom ? '' : `<span class="arrow">→</span><input type="text" class="output-name" value="${prop.outputName || ''}" placeholder="${prop.name}" onchange="updateOutputName(${prop.originalIndex}, this.value)">`}
+              ${prop.isCustom ? '' : `<span class="arrow">→</span><input type="text" class="output-name" value="${prop.outputName || ''}" placeholder="${prop.name}" onchange="updateOutputName(${prop.originalIndex}, this.value)"><span class="plus">+</span><input type="text" class="addition-value" value="${prop.additionValue || ''}" placeholder="追加値" onchange="updateAdditionValue(${prop.originalIndex}, this.value)">`}
               ${prop.isCustom ? `<span class="value">${formatValue(prop.value)}</span>` : ''}
               <span class="type ${prop.isCustom ? 'custom-type' : ''}">${prop.isCustom ? 'カスタム' : prop.type}</span>
               ${prop.isCustom ? `<button class="delete-btn" onclick="deleteCustomProperty(${prop.originalIndex})">×</button>` : ''}
@@ -385,6 +406,7 @@
               ...properties.map((prop, index) => ({
                 ...prop,
                 outputName: prop.outputName || '',
+                additionValue: prop.additionValue || '',
                 isCustom: false,
                 originalIndex: index
               })),
@@ -407,7 +429,8 @@
                 name: item.name,
                 type: item.type,
                 enabled: item.enabled,
-                outputName: item.outputName || ''
+                outputName: item.outputName || '',
+                additionValue: item.additionValue || ''
               }));
 
             customProperties = allItems
@@ -431,6 +454,11 @@
     // 出力名を更新
     function updateOutputName(originalIndex, value) {
       properties[originalIndex].outputName = value;
+    }
+
+    // 追加値を更新
+    function updateAdditionValue(originalIndex, value) {
+      properties[originalIndex].additionValue = value;
     }
 
     // カスタムプロパティを追加

@@ -254,12 +254,34 @@ function convertProperty(
   }
 }
 
+// 値を結合する（配列なら追加、単一値なら上書き）
+function mergePropertyValue(
+  originalValue: PropertyValue,
+  additionValue: string | string[] | number | boolean
+): PropertyValue {
+  // 元の値が配列の場合
+  if (Array.isArray(originalValue)) {
+    if (Array.isArray(additionValue)) {
+      return [...originalValue, ...additionValue];
+    } else {
+      return [...originalValue, String(additionValue)];
+    }
+  }
+
+  // 元の値が単一値の場合は上書き
+  if (Array.isArray(additionValue)) {
+    return additionValue;
+  }
+  return additionValue;
+}
+
 // ページのプロパティを変換
 export function convertPageProperties(
   page: PageObjectResponse,
   excludeProperties: string[] = [],
   propertyOrder: string[] = [],
-  propertyNameMap: Record<string, string> = {}
+  propertyNameMap: Record<string, string> = {},
+  propertyValueAdditions: Record<string, string | string[] | number | boolean> = {}
 ): { properties: ConvertedProperties; files: FileInfo[] } {
   const tempProperties: ConvertedProperties = {};
   const allFiles: FileInfo[] = [];
@@ -273,7 +295,13 @@ export function convertPageProperties(
     if (value !== null) {
       // プロパティ名マッピングを適用（マッピングがあれば変換後の名前を使用）
       const outputName = propertyNameMap[name] || name;
-      tempProperties[outputName] = value;
+
+      // 追加値がある場合は結合
+      if (name in propertyValueAdditions) {
+        tempProperties[outputName] = mergePropertyValue(value, propertyValueAdditions[name]);
+      } else {
+        tempProperties[outputName] = value;
+      }
     }
 
     // ファイル情報を収集
