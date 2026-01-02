@@ -113,7 +113,8 @@ function convertProperty(
     case 'date': {
       const date = propObj.date as { start: string; end?: string } | null;
       if (!date) {
-        return { value: '', files: [] };
+        // nullで出力することでObsidianの日付型を維持
+        return { value: null, files: [] };
       }
       // end がある場合は「start ~ end」形式
       if (date.end) {
