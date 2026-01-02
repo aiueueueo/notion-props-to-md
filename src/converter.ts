@@ -258,7 +258,8 @@ function convertProperty(
 export function convertPageProperties(
   page: PageObjectResponse,
   excludeProperties: string[] = [],
-  propertyOrder: string[] = []
+  propertyOrder: string[] = [],
+  propertyNameMap: Record<string, string> = {}
 ): { properties: ConvertedProperties; files: FileInfo[] } {
   const tempProperties: ConvertedProperties = {};
   const allFiles: FileInfo[] = [];
@@ -270,7 +271,9 @@ export function convertPageProperties(
 
     // nullでない値のみ追加（空文字列や空配列は追加）
     if (value !== null) {
-      tempProperties[name] = value;
+      // プロパティ名マッピングを適用（マッピングがあれば変換後の名前を使用）
+      const outputName = propertyNameMap[name] || name;
+      tempProperties[outputName] = value;
     }
 
     // ファイル情報を収集
@@ -283,8 +286,10 @@ export function convertPageProperties(
   if (propertyOrder.length > 0) {
     // 指定された順序でプロパティを追加
     for (const name of propertyOrder) {
-      if (name in tempProperties) {
-        properties[name] = tempProperties[name];
+      // propertyOrderにはNotionの元のプロパティ名が入っているので、マッピング後の名前に変換
+      const outputName = propertyNameMap[name] || name;
+      if (outputName in tempProperties) {
+        properties[outputName] = tempProperties[outputName];
       }
     }
     // 残りのプロパティを追加（順序が指定されていないもの）

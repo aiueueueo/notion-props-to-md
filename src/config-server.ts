@@ -14,6 +14,7 @@ interface PropertyInfo {
   name: string;
   type: string;
   enabled: boolean;
+  outputName: string;
 }
 
 // カスタムプロパティの型
@@ -69,6 +70,7 @@ export async function startConfigServer(): Promise<void> {
       const propertyOrder: string[] = (currentConfig.propertyOrder as string[]) || [];
       const excludeProperties: string[] = (currentConfig.excludeProperties as string[]) || [];
       const customProperties: CustomPropertyInfo[] = (currentConfig.customProperties as CustomPropertyInfo[]) || [];
+      const propertyNameMap: Record<string, string> = (currentConfig.propertyNameMap as Record<string, string>) || {};
 
       // プロパティ情報を作成
       const allProperties: PropertyInfo[] = schema.map((prop) => {
@@ -76,6 +78,7 @@ export async function startConfigServer(): Promise<void> {
           name: prop.name,
           type: prop.type,
           enabled: !excludeProperties.includes(prop.name),
+          outputName: propertyNameMap[prop.name] || '',
         };
       });
 
@@ -125,6 +128,15 @@ export async function startConfigServer(): Promise<void> {
       config.excludeProperties = properties
         .filter((p) => !p.enabled)
         .map((p) => p.name);
+
+      // プロパティ名マッピングを保存（空でないもののみ）
+      const nameMap: Record<string, string> = {};
+      for (const prop of properties) {
+        if (prop.outputName && prop.outputName.trim() !== '') {
+          nameMap[prop.name] = prop.outputName.trim();
+        }
+      }
+      config.propertyNameMap = nameMap;
 
       // カスタムプロパティを保存
       config.customProperties = customProperties;

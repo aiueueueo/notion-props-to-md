@@ -134,7 +134,10 @@ URL: https://example.com
   "databaseId": "your-notion-database-id",
   "outputDir": "./output",
   "imageDir": "./output/attachments",
-  "excludeProperties": []
+  "excludeProperties": [],
+  "propertyOrder": [],
+  "propertyNameMap": {},
+  "customProperties": []
 }
 ```
 
@@ -144,9 +147,13 @@ URL: https://example.com
 | outputDir | マークダウンファイルの出力先ディレクトリ | Yes |
 | imageDir | 画像ファイルの保存先ディレクトリ | No |
 | excludeProperties | 出力から除外するプロパティ名の配列 | No |
+| propertyOrder | プロパティの出力順序 | No |
+| propertyNameMap | プロパティ名の変換マッピング（例: `{"作成日時": "created"}`） | No |
+| customProperties | カスタムプロパティの配列 | No |
 
 ※ `imageDir`未指定の場合は`outputDir/images`に保存
 ※ ページの指定は設定ファイルではなく、コマンドライン引数または対話モードで行う
+※ `excludeProperties`、`propertyOrder`、`propertyNameMap`、`customProperties`は`npm run config`で設定可能
 
 ## 環境変数
 
@@ -244,6 +251,13 @@ Notion2Obsidian を開始します...
 - フロントマター: パス情報を保持（後処理やスクリプト連携用）
 - 本文: Obsidianで画像が直接表示される
 
+#### 画像プロパティを除外した場合
+
+`files`型のプロパティを除外設定（`excludeProperties`に追加）した場合：
+- 画像のダウンロードは**行われない**
+- 本文への画像リンクは**追加されない**
+- フロントマターへの画像パスは**追加されない**
+
 ## プロジェクト構成（予定）
 
 ```
@@ -269,6 +283,9 @@ Notion2Obsidian/
 # 依存関係のインストール
 npm install
 
+# プロパティ設定画面を開く（ブラウザで設定）
+npm run config
+
 # 対話モードで実行（おすすめ）
 npm run start
 
@@ -285,6 +302,15 @@ npm run start -- --all
 npm run start -- --verbose
 ```
 
+### プロパティ設定画面（npm run config）
+
+ブラウザで設定画面が開き、以下の設定が可能：
+
+- **プロパティの有効/無効**: チェックボックスで出力するプロパティを選択
+- **プロパティの順序**: ドラッグ&ドロップで出力順序を変更
+- **プロパティ名の変更**: Notionのプロパティ名を別の名前で出力（例: 「作成日時」→「created」）
+- **カスタムプロパティの追加**: Notionにはないオリジナルのプロパティを追加
+
 ### コマンドラインオプション一覧
 
 | オプション | 説明 |
@@ -296,7 +322,9 @@ npm run start -- --verbose
 
 ## 今後の拡張予定
 
-- [ ] 除外プロパティの設定機能
+- [x] 除外プロパティの設定機能
+- [x] プロパティ名の変更機能
+- [x] カスタムプロパティの追加機能
 - [ ] ドライラン機能（実際に出力せず確認のみ）
 - [ ] 差分更新機能（変更があったページのみ更新）
 - [ ] ログ出力機能
